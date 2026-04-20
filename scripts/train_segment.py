@@ -13,13 +13,19 @@ CONFIG = TrainConfig()
 # =========================
 # 工具函数
 # =========================
+
+
 def ask_confirm_train(mode, pt_path, config):
+    """
+    在真正训练前打印关键信息，让用户手动确认。
+    """
+
     print("\n------------------------------")
     print(f"即将执行：{mode}")
     print(f"当前使用的 PT 文件：{pt_path}")
     print(f"数据配置文件      ：{config.data_yaml}")
-    print(f"结果保存目录      ：{config.results_dir}")
     print(f"实验名称          ：{config.experiment_name}")
+    print(f"训练轮数 epochs   ：{config.epochs}")
     print("------------------------------")
 
     confirm = input("请确认是否继续？输入 y 继续，其他任意键取消：").strip().lower()
@@ -43,7 +49,62 @@ def list_experiments(results_dir):
     folders.sort()
     return folders
 
+# =========================
+# 数据增强
+# =========================
 
+def ask_use_augment(config):
+    """
+    训练前询问本次是否启用数据增强。
+    回车=使用 config 中的默认值。
+    """
+    print("\n------------------------------")
+    print("数据增强设置")
+    print(f"当前默认值：{'开启' if config.use_augment else '关闭'}")
+    print("------------------------------")
+
+    choice = input("是否启用数据增强？输入 y 开启，n 关闭，直接回车使用默认值：").strip().lower()
+
+    if choice == "y":
+        return True
+    elif choice == "n":
+        return False
+    else:
+        return config.use_augment
+    
+def build_train_kwargs(config, use_augment):
+    """
+    统一构造 model.train() 的参数。
+    如果 use_augment=True，则把增强参数也一起传进去。
+    """
+    kwargs = {
+        "data": config.data_yaml,
+        "epochs": config.epochs,
+        "imgsz": config.imgsz,
+        "batch": config.batch,
+        "device": config.device,
+        "project": config.results_dir,
+        "name": config.experiment_name
+    }
+
+    if use_augment:
+        kwargs.update({
+            "hsv_h": config.hsv_h,
+            "hsv_s": config.hsv_s,
+            "hsv_v": config.hsv_v,
+            "degrees": config.degrees,
+            "translate": config.translate,
+            "scale": config.scale,
+            "shear": config.shear,
+            "perspective": config.perspective,
+            "flipud": config.flipud,
+            "fliplr": config.fliplr,
+            "mosaic": config.mosaic,
+            "mixup": config.mixup,
+            "copy_paste": config.copy_paste,
+        })
+
+    return kwargs
 
 # =========================
 # 数据集与验证集处理
@@ -179,27 +240,22 @@ def log_validation_result(config, mode, notes=""):
 # =========================
 # 训练流程
 # =========================
-def start_new_training(config):
-    print("\n开始新训练...")
 
-    if not ask_confirm_train("开始新训练", config.model_file, config):
+# # ===== 模式1，开启一个新训练 =====
+def start_new_training(config):
+
+    if not ask_confirm_train("模式1 - 开始新训练", config.model_file, config):
         return
     
-    append_train_log(config, mode="new_train", status="started", notes="开始新训练")
+    use_augment = ask_use_augment(config)
+    append_train_log(config, mode="new_train", status="started", notes=f"开始新训练，数据增强={'开启' if use_augment else '关闭'}")
 
     try:
         model = YOLO(config.model_file)
-        model.train(
-            data=config.data_yaml,
-            epochs=config.epochs,
-            imgsz=config.imgsz,
-            batch=config.batch,
-            device=config.device,
-            project=config.results_dir,
-            name=config.experiment_name
-        )
+        train_kwargs = build_train_kwargs(config, use_augment)
+        model.train(**train_kwargs)
 
-        append_train_log(config, mode="new_train", status="finished", notes="训练完成")
+        append_train_log(config, mode="new_train", status="finished", notes=f"训练完成，数据增强={'开启' if use_augment else '关闭'}")
         log_validation_result(config, mode="new_train", notes="训练完成后的验证结果")
 
     except Exception as e:
@@ -207,6 +263,7 @@ def start_new_training(config):
         print(f"\n训练失败：{e}")
 
 
+# # ===== 模式2， =====
 def resume_training(config):
     if not os.path.exists(config.last_pt):
         print(f"\n没有找到上次中断训练的权重文件：{config.last_pt}")
@@ -234,7 +291,7 @@ def resume_training(config):
         append_train_log(config, mode="resume_train", status="failed", notes=str(e))
         print(f"\n继续训练失败：{e}")
 
-
+# # ===== 模式3， =====
 def train_from_previous_best(config):
     folders = list_experiments(config.results_dir)
 
@@ -269,30 +326,25 @@ def train_from_previous_best(config):
     if not ask_confirm_train("基于历史 best.pt 开启新训练", selected_best_pt, config):
         return
 
+    use_augment = ask_use_augment(config)
+
     append_train_log(
         config,
         mode="train_from_best",
         status="started",
-        notes=f"基于历史实验 {selected_exp} 的 best.pt 开始训练"
+        notes=f"基于历史实验 {selected_exp} 开始训练，数据增强={'开启' if use_augment else '关闭'}"
     )
 
     try:
         model = YOLO(selected_best_pt)
-        model.train(
-            data=config.data_yaml,
-            epochs=config.epochs,
-            imgsz=config.imgsz,
-            batch=config.batch,
-            device=config.device,
-            project=config.results_dir,
-            name=config.experiment_name
-        )
+        train_kwargs = build_train_kwargs(config, use_augment)
+        model.train(**train_kwargs)
 
         append_train_log(
             config,
             mode="train_from_best",
             status="finished",
-            notes=f"基于历史实验 {selected_exp} 的训练完成"
+            notes=f"基于历史实验 {selected_exp} 的训练完成，数据增强={'开启' if use_augment else '关闭'}"
         )
 
         log_validation_result(
@@ -315,10 +367,10 @@ def train_from_previous_best(config):
 # 主程序入口
 # =========================
 def main():
-    print("请选择训练方式：")
-    print("1 - 开启一个新的训练")
-    print("2 - 继续上次中断的训练")
-    print("3 - 基于历史实验的 best.pt 再次训练")
+    print("请选择训练模式：")
+    print("模式1 - 开启一个新的训练")
+    print("模式2 - 继续上次中断的训练")
+    print("模式3 - 基于历史实验的 best.pt 再次训练")
     choice = input("请输入 1、2 或 3，直接回车退出\n").strip()
 
     if choice == "1":

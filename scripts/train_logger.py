@@ -4,10 +4,16 @@ from datetime import datetime
 
 
 def get_timestamp() -> str:
+    """
+    获取当前时间字符串，用于时间戳
+    """
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def ensure_log_dir(log_dir: str):
+    """
+    确保日志目录存在，如果目录不存在，就自动创建；
+    """
     os.makedirs(log_dir, exist_ok=True)
 
 
