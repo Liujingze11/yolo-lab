@@ -1,5 +1,6 @@
 import os
 import yaml
+import shutil
 from ultralytics import YOLO
 from config import TrainConfig
 from train_logger import append_train_log, append_full_val_log
@@ -204,14 +205,28 @@ def count_val_label_stats(config):
 def get_val_metrics(best_pt_path, config):
     model = YOLO(best_pt_path)
 
-    metrics = model.val(
-        data=config.data_yaml,
-        imgsz=config.imgsz,
-        batch=config.batch,
-        device=config.device
-    )
 
-    return metrics
+    val_name = f"{config.experiment_name}_tmp_val"
+    val_dir = os.path.join(config.results_dir, val_name)
+    
+    try:
+        metrics = model.val(
+            data=config.data_yaml,
+            imgsz=config.imgsz,
+            batch=config.batch,
+            device=config.device,
+            plots=False,
+            save_txt=False,
+            save_json=False,
+            visualize=False,
+            project=config.results_dir,
+            name=val_name
+        )
+        return metrics
+
+    finally:
+        shutil.rmtree(val_dir, ignore_errors=True)
+
 
 
 def log_validation_result(config, mode, notes=""):
@@ -229,7 +244,7 @@ def log_validation_result(config, mode, notes=""):
             metrics=metrics,
             class_image_counts=class_image_counts,
             class_instance_counts=class_instance_counts,
-            notes=notes
+            notes=notes  
         )
         print("\n验证结果已记录到日志。")
 
