@@ -2,6 +2,7 @@ import os
 import random
 import shutil
 
+# ===== 参数与路径配置 =====
 train_dir = "请输入你的训练集地址"   # 训练集地址
 val_dir = "请输入你的测试集目标地址"       # 测试集/验证集目标地址
 val_ratio = 0.20      # 比例，例如 20% 就写 0.20

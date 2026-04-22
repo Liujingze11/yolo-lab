@@ -2,10 +2,8 @@ import os
 import random
 import shutil
 
-# =========================
-# 基础路径配置
-# =========================
-base_dir = "请输入你的目标数据集地址"
+# ===== 路径配置 =====
+base_dir = "/home/liubohan/lbh/Jingze_yolo_project/data/Source Data/datasets_all_pro"   # 数据集文件夹路径（源目录），包含所有图片与标签
 
 images_train_dir = os.path.join(base_dir, "images", "train")
 images_val_dir   = os.path.join(base_dir, "images", "val")
@@ -15,9 +13,7 @@ labels_train_dir = os.path.join(base_dir, "labels", "train")
 labels_val_dir   = os.path.join(base_dir, "labels", "val")
 labels_test_dir  = os.path.join(base_dir, "labels", "test")
 
-# =========================
-# 比例配置
-# =========================
+# ===== 比例配置 =====
 val_ratio = 0.20   # 验证集比例
 test_ratio = 0.10  # 测试集比例
 
@@ -140,9 +136,7 @@ moved_test_img_count, moved_test_label_count, missing_test_label_count = move_fi
     test_images, images_test_dir, labels_test_dir
 )
 
-# =========================
-# 输出结果
-# =========================
+# ===== 输出结果 =====
 print("\n===== 数据集划分完成 =====")
 print(f"原 train 图片总数: {total_count}")
 

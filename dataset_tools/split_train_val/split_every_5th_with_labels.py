@@ -1,20 +1,22 @@
 import os
 import shutil
 
-# ===== 4个绝对路径参数 =====
+# ===== 参数与路径配置 =====
 images_train_dir = "请输入你的训练集地址"    # 图片训练集地址
 images_val_dir = "请输入你的验证集目标地址"    # 图片测试集/验证集目标地址
 labels_train_dir = "请输入你的训练集地址"    # 图片训练集地址
 labels_val_dir = "请输入你的验证集目标地址"    # 图片测试集/验证集目标地址
+times = 5
 
 # 创建目标文件夹
 os.makedirs(images_val_dir, exist_ok=True)
 os.makedirs(labels_val_dir, exist_ok=True)
 
-# 读取训练图片
+# 读取 train 中的图片
 images = [f for f in os.listdir(images_train_dir) if f.lower().endswith(".jpg")]
 images.sort(key=lambda x: int(os.path.splitext(x)[0]))
 
+# ===== 照片与标签移动 =====
 moved_img_count = 0
 moved_label_count = 0
 missing_label_count = 0
@@ -29,7 +31,7 @@ for img in images:
 
     num = int(name_without_ext)
 
-    if num % 5 == 0:
+    if num % times == 0:
         # ---- 移动图片 ----
         img_src = os.path.join(images_train_dir, img)
         img_dst = os.path.join(images_val_dir, img)

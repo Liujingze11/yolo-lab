@@ -2,13 +2,11 @@ import os
 import random
 import shutil
 
-# ===== 4个绝对路径参数 =====
+# ===== 参数与路径配置 =====
 images_train_dir = "请输入你的训练集地址"    # 图片训练集地址
 images_val_dir = "请输入你的验证集目标地址"    # 图片测试集/验证集目标地址
 labels_train_dir = "请输入你的训练集地址"    # 图片训练集地址
 labels_val_dir = "请输入你的验证集目标地址"    # 图片测试集/验证集目标地址
-
-
 val_ratio = 0.20   # 比例，例如 20% 就写 0.20
 
 # 创建目标文件夹
