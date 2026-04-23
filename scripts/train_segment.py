@@ -1,3 +1,4 @@
+import argparse
 import os
 import yaml
 import shutil
@@ -7,20 +8,16 @@ from train_logger import append_train_log, append_full_val_log
 
 # =========================
 # 训练配置对象
-# 统训练时需要使用的路径、模型和超参数
 # =========================
-CONFIG = TrainConfig()
+CONFIG = TrainConfig()  # 配置了训练时需要使用的路径、模型和超参数
 
 # =========================
 # 工具函数
 # =========================
-
-
 def ask_confirm_train(mode, pt_path, config):
     """
-    在真正训练前打印关键信息，让用户手动确认。
+    信息验证：在真正训练前打印关键信息，让用户手动确认。
     """
-
     print("\n------------------------------")
     print(f"即将执行：{mode}")
     print(f"当前使用的 PT 文件：{pt_path}")
@@ -34,7 +31,6 @@ def ask_confirm_train(mode, pt_path, config):
         print("\n已取消本次训练。")
         return False
     return True
-
 
 def list_experiments(results_dir):
     if not os.path.exists(results_dir):
@@ -50,10 +46,35 @@ def list_experiments(results_dir):
     folders.sort()
     return folders
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="YOLO training script")
+
+    parser.add_argument("--epochs", type=int, default=None, help="训练轮数")
+    parser.add_argument("--imgsz", type=int, default=None, help="输入图片尺寸")
+    parser.add_argument("--batch", type=int, default=None, help="每批次训练图片数量")
+    parser.add_argument("--device", type=str, default=None, help="训练设备，如 0 / 0,1 / cpu")
+    parser.add_argument("--name", type=str, default=None, help="实验名称")
+
+    return parser.parse_args()
+
+
+def override_config_from_args(config, args):
+    if args.epochs is not None:
+        config.epochs = args.epochs
+    if args.imgsz is not None:
+        config.imgsz = args.imgsz
+    if args.batch is not None:
+        config.batch = args.batch
+    if args.device is not None:
+        config.device = args.device
+    if args.name is not None:
+        config.experiment_name = args.name
+
+    return config
+
 # =========================
 # 数据增强
 # =========================
-
 def ask_use_augment(config):
     """
     训练前询问本次是否启用数据增强。
@@ -382,6 +403,11 @@ def train_from_previous_best(config):
 # 主程序入口
 # =========================
 def main():
+    global CONFIG
+
+    args = parse_args()
+    CONFIG = override_config_from_args(CONFIG, args)
+
     print("请选择训练模式：")
     print("模式1 - 开启一个新的训练")
     print("模式2 - 继续上次中断的训练")

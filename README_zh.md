@@ -25,17 +25,30 @@
 ## 项目结构（简化）
 
 ```text
-CODE/
+code/
 ├── dataset_tools/         # 数据划分与标签工具
-├── pretrained_models/     # 常用预训练权重
+│   ├── create_empty_labels.py
+│   ├── split_images_only/
+│   │   ├── split_every_5th_images_only.py
+│   │   └── split_random_images_only.py
+│   ├── split_train_val/
+│   │   ├── split_every_5th_with_labels.py
+│   │   └── split_random_with_labels.py
+│   └── split_train_val_test/
+│       └── split_random_with_labels.py
+├── pretrained_models/     # 常用预训练权重（如 yolov8n.pt, yolov8n-seg.pt）
 ├── result/                # 每次训练的结果目录
 ├── scripts/               # 训练、配置与日志脚本
 │   ├── config.py
 │   ├── paths.py
 │   ├── train_logger.py
-│   └── train_segment.py
+│   ├── train_segment.py
+│   └── predict_test.py
 ├── train_logs/            # CSV 日志：train_log / result_summary / result_per_class
-└── data.yaml              # 数据集配置（类别、train/val 路径等）
+├── data.yaml              # 数据集配置（类别、train/val 路径）
+├── data/                  # 原始与准备好的数据集（json_space, Source Data, datasets*）
+├── predict/               # 推理输出图像（overlay 示例）
+└── isat-sam/              # onnx 模型、类名等相关文件
 ```
 
 ---
@@ -51,6 +64,23 @@ pip install -U pip
 pip install ultralytics pyyaml
 ```
 
+如果你使用 conda，可以创建并激活一个 conda 环境：
+
+```bash
+conda create -n yolo python=3.8 -y
+conda activate yolo
+pip install -U pip
+pip install ultralytics pyyaml
+```
+
+提示：训练脚本（`scripts/train_segment.py`）现在支持命令行参数（通过 `argparse`）在运行时覆盖部分配置项。常用参数包括 `--epochs`、`--imgsz`、`--batch`、`--device` 和 `--name`。示例：
+
+```bash
+python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
+```
+
+脚本仍会提示选择训练模式（1/2/3），并在开始前要求确认；数据增强的询问逻辑保持不变。
+
 如需 GPU，请确保已安装匹配的 CUDA 驱动与 PyTorch（Ultralytics 使用系统 PyTorch）。
 
 ---
@@ -64,6 +94,8 @@ pip install ultralytics pyyaml
 - 实验：`experiment_name`（用于生成 `save_dir`）
 - 增强：`use_augment` 及 `hsv_h/hsv_s/hsv_v/translate/scale/mosaic/mixup/copy_paste` 等
 - 自动属性：`save_dir`, `last_pt`, `best_pt`（通过 property 计算）
+
+提示：上面列出的配置项也可以在运行时通过命令行参数覆盖（参见“命令行参数与非交互式用法”一节），例如 `--epochs`、`--imgsz`、`--batch`、`--device` 和 `--name`。
 
 修改配置后，请检查 `experiment_name` 与 `results_dir` 以避免覆盖已有实验。
 
@@ -155,3 +187,38 @@ python scripts/train_segment.py
 ---
 
 最后提示：完成大改动后请更新 `experiment_name` 并保留旧实验以便回溯对比。
+
+## 命令行参数与非交互式用法
+
+训练脚本支持若干命令行参数（通过 `argparse`）以在运行时覆盖配置项：`--epochs`、`--imgsz`、`--batch`、`--device` 和 `--name`（实验名称）。`--device` 接受 GPU 设备描述字符串，例如 `"0"`、`"0,1"` 或 `"cpu"`。
+
+示例（交互式模式，脚本仍会显示提示）：
+
+```bash
+python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
+```
+
+若需尽量减少交互，请传入所需的参数并准备在提示时输入训练模式。若要实现完全自动化（CI/脚本），可在外部脚本中传入模式选择与确认输入。
+
+## data.yaml 示例
+
+一个最小的分割数据集 `data.yaml` 应包含数据路径与类别名称。示例：
+
+```yaml
+path: /path/to/dataset
+train: images/train
+val: images/val
+nc: 3
+names:
+  - class_a
+  - class_b
+  - class_c
+```
+
+请确认 `train` 和 `val` 路径与数据布局一致（可以是绝对路径或相对于 `path` 的相对路径）。
+
+## 输出与日志保存位置
+
+- 每次实验结果：`results_dir/experiment_name/`（在 `scripts/config.py` 中设置）
+- 检查点：`.../weights/last.pt` 和 `.../weights/best.pt`
+- CSV 日志：`train_logs/` 包含 `train_log.csv`、`result_summary_log.csv` 和 `result_per_class_log.csv`

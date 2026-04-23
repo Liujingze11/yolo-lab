@@ -27,17 +27,30 @@ A small project built on Ultralytics YOLO for image segmentation training. The r
 ## Project structure (simplified)
 
 ```text
-CODE/
+code/
 ├── dataset_tools/         # data splitting and label utilities
-├── pretrained_models/     # common pretrained weights
+│   ├── create_empty_labels.py
+│   ├── split_images_only/
+│   │   ├── split_every_5th_images_only.py
+│   │   └── split_random_images_only.py
+│   ├── split_train_val/
+│   │   ├── split_every_5th_with_labels.py
+│   │   └── split_random_with_labels.py
+│   └── split_train_val_test/
+│       └── split_random_with_labels.py
+├── pretrained_models/     # common pretrained weights (e.g. yolov8n.pt, yolov8n-seg.pt)
 ├── result/                # per-experiment result folders
 ├── scripts/               # training, config and logging scripts
 │   ├── config.py
 │   ├── paths.py
 │   ├── train_logger.py
-│   └── train_segment.py
+│   ├── train_segment.py
+│   └── predict_test.py
 ├── train_logs/            # CSV logs: train_log / result_summary / result_per_class
-└── data.yaml              # dataset config (classes, train/val paths)
+├── data.yaml              # dataset config (classes, train/val paths)
+├── data/                  # raw and prepared datasets (json_space, Source Data, datasets*)
+├── predict/               # inference output images (overlay examples)
+└── isat-sam/              # onnx models, class names and related files
 ```
 
 ---
@@ -53,6 +66,35 @@ pip install -U pip
 pip install ultralytics pyyaml
 ```
 
+If you use conda you can create and activate a conda environment instead:
+
+```bash
+conda create -n yolo python=3.8 -y
+conda activate yolo
+pip install -U pip
+pip install ultralytics pyyaml
+```
+
+## Command-line options & non-interactive usage
+
+The training script supports several command-line flags (via `argparse`) to override configuration at runtime: `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name` (experiment name). The `--device` flag accepts GPU device specifiers as a string, e.g. `"0"`, `"0,1"`, or `"cpu"`.
+
+Example (interactive mode, with prompts still shown):
+
+```bash
+python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
+```
+
+If you want to run with minimal interaction, pass the flags you need and be prepared to enter the training mode choice when prompted. For full automation (CI, scripts), consider running the script inside a wrapper that feeds the chosen mode and confirmation input.
+
+Note: The training script (`scripts/train_segment.py`) now accepts command-line arguments (via `argparse`) to override some configuration values at runtime. Supported flags include `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name`. Example:
+
+```bash
+python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
+```
+
+The script will still prompt for the training mode (1/2/3) and request confirmation before starting; augmentation prompts remain unchanged.
+
 For GPU support, ensure the correct CUDA drivers and a matching PyTorch build are installed; Ultralytics uses the system PyTorch.
 
 ---
@@ -66,6 +108,8 @@ All main settings are in `scripts/config.py` (managed via `TrainConfig`):
 - Experiment: `experiment_name` (used to generate `save_dir`)
 - Augmentation: `use_augment` and parameters such as `hsv_h`, `hsv_s`, `hsv_v`, `translate`, `scale`, `mosaic`, `mixup`, `copy_paste`
 - Auto properties: `save_dir`, `last_pt`, `best_pt` (computed via properties)
+
+Note: many of these configuration options can also be overridden at runtime via command-line arguments (see the "Command-line options & non-interactive usage" section), e.g. `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name`.
 
 After editing config, double-check `experiment_name` and `results_dir` to avoid overwriting existing experiments.
 
@@ -164,3 +208,26 @@ PRs and issues are welcome:
 ---
 
 Final note: after large changes, update `experiment_name` and keep previous experiments for comparison and traceability.
+
+## data.yaml example
+
+A minimal `data.yaml` for a segmentation dataset should specify dataset paths and class names. Example:
+
+```yaml
+path: /path/to/dataset
+train: images/train
+val: images/val
+nc: 3
+names:
+  - class_a
+  - class_b
+  - class_c
+```
+
+Ensure the `train` and `val` paths match your dataset layout (they may be absolute or relative to `path`).
+
+## Where outputs and logs are stored
+
+- Per-experiment results: `results_dir/experiment_name/` (set in `scripts/config.py`)
+- Checkpoints: `.../weights/last.pt` and `.../weights/best.pt`
+- CSV logs: `train_logs/` contains `train_log.csv`, `result_summary_log.csv` and `result_per_class_log.csv`
