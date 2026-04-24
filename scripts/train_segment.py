@@ -1,7 +1,7 @@
-import argparse
 import os
 import yaml
-import shutil
+import shutil   # 用于删除临时验证结果文件夹 
+import argparse
 from ultralytics import YOLO
 from config import TrainConfig
 from train_logger import append_train_log, append_full_val_log
@@ -33,20 +33,37 @@ def ask_confirm_train(mode, pt_path, config):
     return True
 
 def list_experiments(results_dir):
+    """
+    扫描 results_dir 目录下的所有子文件夹，获取历史实验文件夹列表。
+
+    参数：
+    results_dir: YOLO 训练结果保存目录
+    """
     if not os.path.exists(results_dir):
         print(f"\n结果目录不存在：{results_dir}")
         return []
 
     folders = []
+    # 遍历结果目录中的所有内容
     for name in os.listdir(results_dir):
         full_path = os.path.join(results_dir, name)
         if os.path.isdir(full_path):
             folders.append(name)
 
-    folders.sort()
+    folders.sort()  # 对实验名称排序，方便展示
     return folders
 
+
+# =========================
+# 命令行函数
+# =========================
 def parse_args():
+    """
+    解析命令行参数，允许用户在运行 Python 脚本时临时修改训练参数。
+
+    示例：
+    python train.py --epochs 200 --batch 8 --device 0 --name exp_test
+    """
     parser = argparse.ArgumentParser(description="YOLO training script")
 
     parser.add_argument("--epochs", type=int, default=None, help="训练轮数")
@@ -59,6 +76,16 @@ def parse_args():
 
 
 def override_config_from_args(config, args):
+    """
+    使用命令行参数覆盖默认配置。
+
+    参数：
+    config: 默认配置对象
+    args: 命令行参数对象
+
+    返回：
+    修改后的 config
+    """
     if args.epochs is not None:
         config.epochs = args.epochs
     if args.imgsz is not None:
@@ -72,13 +99,13 @@ def override_config_from_args(config, args):
 
     return config
 
+
 # =========================
 # 数据增强
 # =========================
 def ask_use_augment(config):
     """
     训练前询问本次是否启用数据增强。
-    回车=使用 config 中的默认值。
     """
     print("\n------------------------------")
     print("数据增强设置")
@@ -98,6 +125,13 @@ def build_train_kwargs(config, use_augment):
     """
     统一构造 model.train() 的参数。
     如果 use_augment=True，则把增强参数也一起传进去。
+
+    参数：
+    config: 训练配置对象
+    use_augment: 是否启用数据增强
+
+    返回：
+    kwargs: 传给 YOLO 训练函数的参数字典
     """
     kwargs = {
         "data": config.data_yaml,
@@ -128,6 +162,7 @@ def build_train_kwargs(config, use_augment):
 
     return kwargs
 
+
 # =========================
 # 数据集与验证集处理
 # =========================
@@ -144,8 +179,6 @@ def get_class_names_from_data_yaml(data_yaml_path):
     else:
         return {}
     
-
-
 
 def get_val_labels_dir(data_yaml_path):
     with open(data_yaml_path, "r", encoding="utf-8") as f:
@@ -174,8 +207,6 @@ def get_val_labels_dir(data_yaml_path):
     parent_dir = os.path.dirname(os.path.dirname(val_path))
     val_name = os.path.basename(val_path)
     return os.path.join(parent_dir, "labels", val_name)
-
-
 
 
 def count_val_label_stats(config):
@@ -249,7 +280,6 @@ def get_val_metrics(best_pt_path, config):
         shutil.rmtree(val_dir, ignore_errors=True)
 
 
-
 def log_validation_result(config, mode, notes=""):
     if not os.path.exists(config.best_pt):
         print(f"\n未找到 best.pt，无法记录验证结果：{config.best_pt}")
@@ -277,7 +307,7 @@ def log_validation_result(config, mode, notes=""):
 # 训练流程
 # =========================
 
-# # ===== 模式1，开启一个新训练 =====
+# # ===== 模式1：开启一个新的训练 =====
 def start_new_training(config):
 
     if not ask_confirm_train("模式1 - 开始新训练", config.model_file, config):
@@ -299,7 +329,7 @@ def start_new_training(config):
         print(f"\n训练失败：{e}")
 
 
-# # ===== 模式2， =====
+# # ===== 模式2：继续上次中断的训练 =====
 def resume_training(config):
     if not os.path.exists(config.last_pt):
         print(f"\n没有找到上次中断训练的权重文件：{config.last_pt}")
@@ -327,7 +357,7 @@ def resume_training(config):
         append_train_log(config, mode="resume_train", status="failed", notes=str(e))
         print(f"\n继续训练失败：{e}")
 
-# # ===== 模式3， =====
+# # ===== 模式3：基于历史实验的 best.pt 开启新训练 =====
 def train_from_previous_best(config):
     folders = list_experiments(config.results_dir)
 
@@ -403,7 +433,6 @@ def train_from_previous_best(config):
 # 主程序入口
 # =========================
 def main():
-    global CONFIG
 
     args = parse_args()
     CONFIG = override_config_from_args(CONFIG, args)
