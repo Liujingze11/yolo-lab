@@ -433,7 +433,7 @@ def train_from_previous_best(config):
 # 主程序入口
 # =========================
 def main():
-
+    global CONFIG
     args = parse_args()
     CONFIG = override_config_from_args(CONFIG, args)
 
