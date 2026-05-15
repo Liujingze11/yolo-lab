@@ -319,6 +319,7 @@ class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("YOLO Lab")
+        self._closing = False
         self.resize(820, 700)
         self.setMinimumSize(480, 360)
 
@@ -875,14 +876,16 @@ class MainWindow(QWidget):
     def _on_train_failed(self, msg):
         self._log_err("训练失败")
         self.tr_log.append(f'<span style="color:#ff6e6e;">{msg[:1500]}</span>')
-        QMessageBox.critical(self, "训练失败", msg[:2000])
+        if not self._closing:
+            QMessageBox.critical(self, "训练失败", msg[:2000])
         self._set_train_ui_state("idle")
         self._refresh_history()
 
     @Slot()
     def _on_train_done(self):
         self._log_good("训练完成")
-        QMessageBox.information(self, "完成", "训练流程已结束。")
+        if not self._closing:
+            QMessageBox.information(self, "完成", "训练流程已结束。")
         self._set_train_ui_state("idle")
         self._refresh_history()
 
@@ -898,7 +901,8 @@ class MainWindow(QWidget):
 
     @Slot()
     def _on_train_thread_finished(self):
-        pass  # 按钮状态已由具体结果 handler 处理
+        if self._closing:
+            QApplication.quit()
 
     # ═══════════════════════════════════════════════════════
     #  推理页
@@ -996,6 +1000,24 @@ class MainWindow(QWidget):
     def _log_info_ir(self, msg):
         self.ir_log.append(f'<span style="color:#6ec6ff;">[info]</span>  {msg}')
 
+    def closeEvent(self, event):
+        if self._closing:
+            event.accept()
+            return
+        self._closing = True
+        self.hide()
+        self._log_info("正在退出，终止训练/推理进程...")
+        workers_running = False
+        if self._train_worker and self._train_worker.isRunning():
+            self._train_worker.stop()
+            workers_running = True
+        if self._infer_worker and self._infer_worker.isRunning():
+            self._infer_worker.stop()
+            workers_running = True
+        if not workers_running:
+            QApplication.quit()
+        event.ignore()
+
     def showEvent(self, e):
         super().showEvent(e)
         if self._infer_defaults_done:
@@ -1067,12 +1089,14 @@ class MainWindow(QWidget):
     def _on_infer_failed(self, msg):
         self.ir_log.append(f'<span style="color:#ff5555;">[err!]</span>  推理失败')
         self.ir_log.append(f'<span style="color:#ff6e6e;">{msg[:1500]}</span>')
-        QMessageBox.critical(self, "推理失败", msg[:2000])
+        if not self._closing:
+            QMessageBox.critical(self, "推理失败", msg[:2000])
 
     @Slot()
     def _on_infer_done(self):
         self.ir_log.append(f'<span style="color:#50fa7b;">[ ok ]</span>  推理完成')
-        QMessageBox.information(self, "完成", "推理已结束。")
+        if not self._closing:
+            QMessageBox.information(self, "完成", "推理已结束。")
 
     @Slot()
     def _on_infer_stopped(self):
@@ -1082,6 +1106,8 @@ class MainWindow(QWidget):
     def _on_infer_thread_finished(self):
         self.btn_infer.setVisible(True)
         self.btn_stop_ir.setVisible(False)
+        if self._closing:
+            QApplication.quit()
 
 
 def main():
