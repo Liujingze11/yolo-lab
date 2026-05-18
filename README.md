@@ -85,15 +85,7 @@ Example (interactive mode, with prompts still shown):
 python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
 ```
 
-If you want to run with minimal interaction, pass the flags you need and be prepared to enter the training mode choice when prompted. For full automation (CI, scripts), consider running the script inside a wrapper that feeds the chosen mode and confirmation input.
-
-Note: The training script (`scripts/train_segment.py`) now accepts command-line arguments (via `argparse`) to override some configuration values at runtime. Supported flags include `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name`. Example:
-
-```bash
-python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1 --name my_experiment
-```
-
-The script will still prompt for the training mode (1/2/3) and request confirmation before starting; augmentation prompts remain unchanged.
+The script will still prompt for the training mode (1/2/3), confirmation, and augmentation choice before starting. For full automation (CI, scripts), consider running the script inside a wrapper that feeds the expected inputs.
 
 For GPU support, ensure the correct CUDA drivers and a matching PyTorch build are installed; Ultralytics uses the system PyTorch.
 
@@ -101,24 +93,29 @@ For GPU support, ensure the correct CUDA drivers and a matching PyTorch build ar
 
 ## Configuration
 
-All main settings are in `scripts/config.py` (managed via `TrainConfig`):
+### Path auto-detection
 
-- Paths: `data_yaml`, `model_file`, `results_dir`, `log_dir`
+Default paths are defined in `scripts/paths.py` and are **automatically derived from the project root** — no manual path editing is required if you follow the standard project structure. You only need to change them if your dataset or models are stored elsewhere.
+
+### TrainConfig (`scripts/config.py`)
+
+Training hyperparameters and experiment settings:
+
+- Paths: `data_yaml`, `model_file`, `results_dir`, `log_dir` (default values imported from `paths.py`, auto-detected from project root)
 - Training hyperparameters: `epochs`, `imgsz`, `batch`, `device`
 - Experiment: `experiment_name` (used to generate `save_dir`)
 - Augmentation: `use_augment` and parameters such as `hsv_h`, `hsv_s`, `hsv_v`, `translate`, `scale`, `mosaic`, `mixup`, `copy_paste`
 - Auto properties: `save_dir`, `last_pt`, `best_pt` (computed via properties)
 
-Note: many of these configuration options can also be overridden at runtime via command-line arguments (see the "Command-line options & non-interactive usage" section), e.g. `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name`.
-
-After editing config, double-check `experiment_name` and `results_dir` to avoid overwriting existing experiments.
+Note: training hyperparameters can be overridden at runtime via command-line arguments (see the "Command-line options" section): `--epochs`, `--imgsz`, `--batch`, `--device`, and `--name`.
 
 ---
 
 ## Quick start
 
-1. Edit `scripts/config.py`: set `data_yaml`, `model_file`, `experiment_name`, and training hyperparameters.
-2. Start training:
+1. Edit `data.yaml`: set the `path` to your dataset directory and update `names` with your class names.
+2. (Optional) Edit `scripts/paths.py` if your dataset or models are in non-standard locations.
+3. Start training:
 
 ```bash
 python scripts/train_segment.py
@@ -148,10 +145,10 @@ After training, validation runs automatically and results are appended to logs. 
 
 ## Recommended workflow
 
-1. Prepare and check your dataset using `dataset_tools/`.
+1. Prepare your dataset and `data.yaml` (use `dataset_tools/` for splitting if needed).
 2. Set a new `experiment_name` in `scripts/config.py` to avoid collisions.
 3. Run `python scripts/train_segment.py` and choose the appropriate mode.
-4. After training, inspect `result/` for `best.pt` and `last.pt`, and review corresponding entries in `train_logs/`.
+4. After training, inspect `result/<experiment_name>/weights/` for `best.pt` and `last.pt`, and review corresponding entries in `train_logs/`.
 
 ---
 
@@ -214,20 +211,19 @@ Final note: after large changes, update `experiment_name` and keep previous expe
 A minimal `data.yaml` for a segmentation dataset should specify dataset paths and class names. Example:
 
 ```yaml
-path: /path/to/dataset
+path: ./data/Source Data/datasets_all_pro   # absolute or relative path to dataset root
 train: images/train
 val: images/val
-nc: 3
 names:
-  - class_a
-  - class_b
-  - class_c
+  0: class_a
+  1: class_b
+  2: class_c
 ```
 
 Ensure the `train` and `val` paths match your dataset layout (they may be absolute or relative to `path`).
 
 ## Where outputs and logs are stored
 
-- Per-experiment results: `results_dir/experiment_name/` (set in `scripts/config.py`)
-- Checkpoints: `.../weights/last.pt` and `.../weights/best.pt`
-- CSV logs: `train_logs/` contains `train_log.csv`, `result_summary_log.csv` and `result_per_class_log.csv`
+- Per-experiment results: `result/<experiment_name>/` (auto-created under project root)
+- Checkpoints: `result/<experiment_name>/weights/last.pt` and `best.pt`
+- CSV logs: `train_logs/` (auto-created) contains `train_log.csv`, `result_summary_log.csv` and `result_per_class_log.csv`

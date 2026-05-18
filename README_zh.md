@@ -87,24 +87,29 @@ python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1
 
 ## 配置说明
 
-主要配置在 `scripts/config.py` 中（由 `TrainConfig` 管理）：
+### 路径自动检测
 
-- 路径：`data_yaml`, `model_file`, `results_dir`, `log_dir`
+默认路径定义在 `scripts/paths.py` 中，并**自动基于项目根目录计算**——如果你的数据集结构符合项目标准布局，无需手动修改任何路径。只有当你的数据集或模型存放在非标准位置时才需要修改。
+
+### TrainConfig（`scripts/config.py`）
+
+训练超参与实验配置：
+
+- 路径：`data_yaml`, `model_file`, `results_dir`, `log_dir`（默认值从 `paths.py` 导入，自动基于项目根目录检测）
 - 超参：`epochs`, `imgsz`, `batch`, `device`
 - 实验：`experiment_name`（用于生成 `save_dir`）
 - 增强：`use_augment` 及 `hsv_h/hsv_s/hsv_v/translate/scale/mosaic/mixup/copy_paste` 等
 - 自动属性：`save_dir`, `last_pt`, `best_pt`（通过 property 计算）
 
-提示：上面列出的配置项也可以在运行时通过命令行参数覆盖（参见“命令行参数与非交互式用法”一节），例如 `--epochs`、`--imgsz`、`--batch`、`--device` 和 `--name`。
-
-修改配置后，请检查 `experiment_name` 与 `results_dir` 以避免覆盖已有实验。
+提示：超参也可以在运行时通过命令行参数覆盖（参见”命令行参数与非交互式用法”一节），例如 `--epochs`、`--imgsz`、`--batch`、`--device` 和 `--name`。
 
 ---
 
 ## 快速开始
 
-1. 编辑 `scripts/config.py`：设置 `data_yaml`、`model_file`、`experiment_name` 与训练超参。
-2. 启动训练：
+1. 编辑 `data.yaml`：将 `path` 设置为你的数据集目录，并按实际类别修改 `names`。
+2. （可选）如果你的数据或模型不在标准位置，编辑 `scripts/paths.py`。
+3. 启动训练：
 
 ```bash
 python scripts/train_segment.py
@@ -134,10 +139,10 @@ python scripts/train_segment.py
 
 ## 推荐流程
 
-1. 使用 `dataset_tools/` 处理并检查数据集。
+1. 准备数据集和 `data.yaml`（如需划分数据集，可使用 `dataset_tools/`）。
 2. 在 `scripts/config.py` 中设置新的 `experiment_name`（避免覆盖）。
 3. 运行 `python scripts/train_segment.py` 并选择合适模式。
-4. 训练结束后在 `result/` 查看 `best.pt`、`last.pt`，并检查 `train_logs/` 中的对应条目。
+4. 训练结束后在 `result/<experiment_name>/weights/` 查看 `best.pt`、`last.pt`，并检查 `train_logs/` 中的对应条目。
 
 ---
 
@@ -205,20 +210,19 @@ python scripts/train_segment.py --epochs 200 --imgsz 1280 --batch 8 --device 0,1
 一个最小的分割数据集 `data.yaml` 应包含数据路径与类别名称。示例：
 
 ```yaml
-path: /path/to/dataset
+path: ./data/Source Data/datasets_all_pro   # 数据集的绝对或相对路径
 train: images/train
 val: images/val
-nc: 3
 names:
-  - class_a
-  - class_b
-  - class_c
+  0: class_a
+  1: class_b
+  2: class_c
 ```
 
 请确认 `train` 和 `val` 路径与数据布局一致（可以是绝对路径或相对于 `path` 的相对路径）。
 
 ## 输出与日志保存位置
 
-- 每次实验结果：`results_dir/experiment_name/`（在 `scripts/config.py` 中设置）
-- 检查点：`.../weights/last.pt` 和 `.../weights/best.pt`
-- CSV 日志：`train_logs/` 包含 `train_log.csv`、`result_summary_log.csv` 和 `result_per_class_log.csv`
+- 每次实验结果：`result/<experiment_name>/`（自动在项目根目录下创建）
+- 检查点：`result/<experiment_name>/weights/last.pt` 和 `best.pt`
+- CSV 日志：`train_logs/`（自动创建）包含 `train_log.csv`、`result_summary_log.csv` 和 `result_per_class_log.csv`
