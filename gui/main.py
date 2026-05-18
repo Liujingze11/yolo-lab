@@ -314,6 +314,14 @@ class MainWindow(QWidget):
         combo.addItems(history)
         combo.blockSignals(False)
 
+    @staticmethod
+    def _model_file_ok(path: str) -> bool:
+        """本地文件存在，或是一个 YOLO 模型短名称（ultralytics 自动下载）。"""
+        if Path(path).is_file():
+            return True
+        # 短名称如 yolov8n-seg.pt — 不含路径分隔符，ultralytics 会自动下载
+        return bool(path) and os.sep not in path and "/" not in path
+
     def _open_data_yaml(self):
         p = Path(path_combo_get(self.tr_data_yaml))
         if not p.is_file():
@@ -507,7 +515,7 @@ class MainWindow(QWidget):
 
         if self.rb_new.isChecked():
             mode = 1
-            if not Path(cfg.model_file).is_file():
+            if not self._model_file_ok(cfg.model_file):
                 QMessageBox.critical(self, "错误", f"找不到初始权重：\n{cfg.model_file}")
                 return
             selected = None
@@ -523,7 +531,7 @@ class MainWindow(QWidget):
                 if r != QMessageBox.Yes:
                     return
                 mode = 1
-                if not Path(cfg.model_file).is_file():
+                if not self._model_file_ok(cfg.model_file):
                     QMessageBox.critical(self, "错误", f"找不到初始权重：\n{cfg.model_file}")
                     return
             selected = None
@@ -777,7 +785,7 @@ class MainWindow(QWidget):
             return
         imgsz_val = int(self.ir_imgsz.value())
 
-        if not Path(model_path).is_file():
+        if not self._model_file_ok(model_path):
             QMessageBox.critical(self, "错误", f"找不到模型：\n{model_path}")
             return
         if not Path(source).exists():
