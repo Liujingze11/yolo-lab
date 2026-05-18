@@ -1,6 +1,8 @@
 import os
+os.environ["MPLBACKEND"] = "Agg"  # 必须在 import matplotlib 之前设置，防止 FT2Font 字体加载错误
+
 import yaml
-import shutil   # 用于删除临时验证结果文件夹 
+import shutil   # 用于删除临时验证结果文件夹
 import argparse
 from ultralytics import YOLO
 from config import TrainConfig
@@ -325,8 +327,16 @@ def start_new_training(config):
         log_validation_result(config, mode="new_train", notes="训练完成后的验证结果")
 
     except Exception as e:
-        append_train_log(config, mode="new_train", status="failed", notes=str(e))
-        print(f"\n训练失败：{e}")
+        # 训练权重已由 ultralytics 自动保存，此处异常通常来自训练结束后的内部验证阶段
+        if os.path.exists(config.best_pt):
+            append_train_log(config, mode="new_train", status="finished",
+                           notes=f"训练完成但内部验证失败: {e}")
+            print(f"\n训练已完成（权重已保存），但内部验证失败：{e}")
+            # 尝试用日志记录模块再次验证
+            log_validation_result(config, mode="new_train", notes=f"内部验证失败后的重试验证。原错误: {e}")
+        else:
+            append_train_log(config, mode="new_train", status="failed", notes=str(e))
+            print(f"\n训练失败：{e}")
 
 
 # # ===== 模式2：继续上次中断的训练 =====
@@ -420,13 +430,16 @@ def train_from_previous_best(config):
         )
 
     except Exception as e:
-        append_train_log(
-            config,
-            mode="train_from_best",
-            status="failed",
-            notes=str(e)
-        )
-        print(f"\n训练失败：{e}")
+        if os.path.exists(config.best_pt):
+            append_train_log(config, mode="train_from_best", status="finished",
+                           notes=f"训练完成但内部验证失败（基础实验: {selected_exp}）: {e}")
+            print(f"\n训练已完成（权重已保存），但内部验证失败：{e}")
+            log_validation_result(config, mode="train_from_best",
+                                notes=f"内部验证失败后的重试验证（基础实验: {selected_exp}）。原错误: {e}")
+        else:
+            append_train_log(config, mode="train_from_best", status="failed",
+                           notes=f"基础实验 {selected_exp}: {e}")
+            print(f"\n训练失败：{e}")
 
 
 # =========================
